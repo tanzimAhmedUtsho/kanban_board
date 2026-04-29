@@ -424,6 +424,12 @@ function updateNotificationButton() {
     return;
   }
 
+  if (Notification.permission === "denied") {
+    notificationToggle.innerText = "Alerts Blocked";
+    notificationToggle.disabled = true;
+    return;
+  }
+
   notificationToggle.innerText = Notification.permission === "granted" ? "Alerts On" : "Enable Alerts";
   notificationToggle.disabled = Notification.permission === "denied";
 }
