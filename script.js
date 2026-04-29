@@ -1,4 +1,5 @@
 const STORAGE_KEY = "taskflow-pro-tanzim-utsho";
+const THEME_KEY = "taskflow-pro-theme";
 
 const taskForm = document.getElementById("taskForm");
 const taskInput = document.getElementById("taskInput");
@@ -6,6 +7,7 @@ const priorityInput = document.getElementById("priorityInput");
 const dueInput = document.getElementById("dueInput");
 const searchInput = document.getElementById("searchInput");
 const clearDoneBtn = document.getElementById("clearDoneBtn");
+const themeToggle = document.getElementById("themeToggle");
 const filterButtons = document.querySelectorAll(".filter-btn");
 const lists = document.querySelectorAll(".task-list");
 const emptyStateTemplate = document.getElementById("emptyStateTemplate");
@@ -20,7 +22,9 @@ const priorityStyles = {
 
 let activeFilter = "All";
 let tasks = loadTasks();
+let activeTheme = localStorage.getItem(THEME_KEY) || "light";
 saveTasks();
+applyTheme(activeTheme);
 
 function loadTasks() {
   try {
@@ -77,6 +81,16 @@ function loadTasks() {
 
 function saveTasks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+}
+
+function applyTheme(theme) {
+  activeTheme = theme === "dark" ? "dark" : "light";
+  document.body.dataset.theme = activeTheme;
+  localStorage.setItem(THEME_KEY, activeTheme);
+
+  const isDark = activeTheme === "dark";
+  themeToggle.innerText = isDark ? "Light Mode" : "Dark Mode";
+  themeToggle.setAttribute("aria-pressed", String(isDark));
 }
 
 function createTask(title, priority, due) {
@@ -425,6 +439,10 @@ searchInput.addEventListener("input", renderBoard);
 clearDoneBtn.addEventListener("click", () => {
   tasks = tasks.filter((task) => task.status !== "done");
   saveAndRender();
+});
+
+themeToggle.addEventListener("click", () => {
+  applyTheme(activeTheme === "dark" ? "light" : "dark");
 });
 
 renderBoard();
