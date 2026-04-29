@@ -2,6 +2,35 @@ const STORAGE_KEY = "taskflow-pro-tanzim-utsho";
 const THEME_KEY = "taskflow-pro-theme";
 const DUE_ALERTS_KEY = "taskflow-pro-due-alerts";
 
+const statusOrder = ["todo", "inprogress", "done"];
+const IN_PROGRESS_STATUS = "inprogress";
+const boardColumns = [
+  {
+    id: "todo",
+    eyebrow: "Backlog",
+    title: "To Do",
+    eyebrowClass: "text-amber-600",
+    countClass: "bg-amber-100 text-amber-700",
+  },
+  {
+    id: "inprogress",
+    eyebrow: "Execution",
+    title: "In Progress",
+    eyebrowClass: "text-sky-600",
+    countClass: "bg-sky-100 text-sky-700",
+  },
+  {
+    id: "done",
+    eyebrow: "Shipped",
+    title: "Done",
+    eyebrowClass: "text-emerald-600",
+    countClass: "bg-emerald-100 text-emerald-700",
+  },
+];
+const priorityFilters = ["All", "High", "Medium", "Low"];
+
+renderAppShell();
+
 const taskForm = document.getElementById("taskForm");
 const taskInput = document.getElementById("taskInput");
 const priorityInput = document.getElementById("priorityInput");
@@ -15,8 +44,6 @@ const filterButtons = document.querySelectorAll(".filter-btn");
 const lists = document.querySelectorAll(".task-list");
 const emptyStateTemplate = document.getElementById("emptyStateTemplate");
 
-const statusOrder = ["todo", "inprogress", "done"];
-const IN_PROGRESS_STATUS = "inprogress";
 const priorityStyles = {
   High: "bg-rose-50 text-rose-700 ring-rose-200",
   Medium: "bg-sky-50 text-sky-700 ring-sky-200",
@@ -28,6 +55,187 @@ let tasks = loadTasks();
 let activeTheme = localStorage.getItem(THEME_KEY) || "light";
 saveTasks();
 applyTheme(activeTheme);
+
+function renderAppShell() {
+  const app = document.getElementById("app");
+  app.className = "mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8";
+  app.innerHTML = `
+    <header class="glass rounded-3xl px-5 py-6 sm:px-8">
+      <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div class="max-w-2xl">
+          <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-slate-500">
+            Premium productivity board
+          </div>
+          <h1 class="text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+            TaskFlow <span class="text-teal-600">Pro</span>
+          </h1>
+          <p class="mt-3 max-w-xl text-base leading-7 text-slate-600">
+            Plan projects, track priority, follow deadlines, and move work from idea to done with a focused Kanban workspace.
+          </p>
+        </div>
+
+        <div class="grid gap-3 sm:min-w-[28rem]">
+          <button
+            id="themeToggle"
+            class="theme-toggle h-12 justify-center rounded-2xl border border-white/70 bg-white/70 px-4 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-200 hover:text-teal-700"
+            type="button"
+            aria-pressed="false"
+          >
+            Dark Mode
+          </button>
+          <button
+            id="notificationToggle"
+            class="h-12 rounded-2xl border border-white/70 bg-white/70 px-4 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:text-rose-600"
+            type="button"
+          >
+            Enable Alerts
+          </button>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            ${buildStatCards()}
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 h-2 overflow-hidden rounded-full bg-slate-200">
+        <div id="progressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-rose-500 transition-all duration-500"></div>
+      </div>
+    </header>
+
+    <section class="soft-panel rounded-3xl p-4 sm:p-5">
+      <form id="taskForm" class="grid gap-3 lg:grid-cols-[1fr_10rem_10rem_12rem_auto]">
+        <input
+          id="taskInput"
+          type="text"
+          maxlength="90"
+          placeholder="Add a meaningful task..."
+          class="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+          autocomplete="off"
+        />
+        <select
+          id="priorityInput"
+          class="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-slate-700 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+        >
+          ${["High", "Medium", "Low"]
+            .map((priority) => `<option value="${priority}" ${priority === "Medium" ? "selected" : ""}>${priority} priority</option>`)
+            .join("")}
+        </select>
+        <input
+          id="dueInput"
+          type="date"
+          class="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-slate-700 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+        />
+        <input
+          id="tagInput"
+          type="text"
+          maxlength="120"
+          placeholder="Tags: Bug, Design"
+          class="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-slate-700 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+          autocomplete="off"
+        />
+        <button
+          class="h-12 rounded-2xl bg-slate-950 px-6 font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-teal-700"
+          type="submit"
+        >
+          Add Task
+        </button>
+      </form>
+
+      <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="relative w-full sm:max-w-sm">
+          <input
+            id="searchInput"
+            type="search"
+            placeholder="Search tasks..."
+            class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10"
+          />
+        </div>
+        <div class="flex gap-2 overflow-x-auto hide-scrollbar">
+          ${buildFilterButtons()}
+          <button type="button" id="clearDoneBtn" class="rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:text-rose-600">Clear Done</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-3">
+      ${boardColumns.map(buildBoardColumn).join("")}
+    </section>
+
+    <footer class="pb-2 text-center text-sm font-semibold text-slate-500">
+      Created by <span class="text-slate-950">Tanzim Ahmed Utsho</span>
+    </footer>
+
+    <template id="emptyStateTemplate">
+      <div class="empty-state flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/40 p-6 text-center text-sm font-semibold text-slate-400">
+        Drop tasks here
+      </div>
+    </template>
+  `;
+}
+
+function buildStatCards() {
+  return [
+    {
+      label: "Total",
+      id: "totalTasks",
+      valueClass: "text-slate-950",
+      content: "0",
+    },
+    {
+      label: "Done",
+      id: "doneTasks",
+      valueClass: "text-emerald-600",
+      content: "0",
+    },
+    {
+      label: "Progress",
+      content: `
+        <div class="mt-2 flex items-center gap-3">
+          <div id="progressChart" class="progress-chart" aria-label="Progress chart" role="img">
+            <span id="progressPercent" class="progress-chart-value text-sm font-black text-slate-950">0%</span>
+          </div>
+          <p class="text-xs font-bold leading-5 text-slate-500">Done rate</p>
+        </div>
+      `,
+    },
+  ]
+    .map(
+      (stat) => `
+        <div class="rounded-2xl border border-white/70 bg-white/70 p-4">
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">${stat.label}</p>
+          ${
+            stat.id
+              ? `<p id="${stat.id}" class="mt-1 text-3xl font-black ${stat.valueClass}">${stat.content}</p>`
+              : stat.content
+          }
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function buildFilterButtons() {
+  return priorityFilters
+    .map((filter) => {
+      const activeClasses = filter === "All" ? "bg-slate-950 text-white" : "bg-white text-slate-600";
+      return `<button type="button" class="filter-btn rounded-full px-4 py-2 text-sm font-bold ${activeClasses}" data-filter="${filter}">${filter}</button>`;
+    })
+    .join("");
+}
+
+function buildBoardColumn(column) {
+  return `
+    <article class="column soft-panel rounded-3xl p-4">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-black uppercase tracking-[0.18em] ${column.eyebrowClass}">${column.eyebrow}</p>
+          <h2 class="text-xl font-black text-slate-900">${column.title}</h2>
+        </div>
+        <span id="${column.id}-count" class="rounded-full px-3 py-1 text-sm font-black ${column.countClass}">0</span>
+      </div>
+      <div class="task-list rounded-2xl border border-dashed border-slate-200 p-2" id="${column.id}" data-status="${column.id}"></div>
+    </article>
+  `;
+}
 
 function loadTasks() {
   try {
