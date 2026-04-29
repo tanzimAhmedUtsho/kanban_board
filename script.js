@@ -5,6 +5,7 @@ const taskForm = document.getElementById("taskForm");
 const taskInput = document.getElementById("taskInput");
 const priorityInput = document.getElementById("priorityInput");
 const dueInput = document.getElementById("dueInput");
+const tagInput = document.getElementById("tagInput");
 const searchInput = document.getElementById("searchInput");
 const clearDoneBtn = document.getElementById("clearDoneBtn");
 const themeToggle = document.getElementById("themeToggle");
@@ -36,7 +37,9 @@ function loadTasks() {
 
         return {
           details: "",
+          tags: [],
           ...task,
+          tags: Array.isArray(task.tags) ? task.tags : [],
           inProgressStartedAt,
         };
       });
@@ -51,6 +54,7 @@ function loadTasks() {
       title: "Design premium homepage polish",
       priority: "High",
       details: "Refine spacing, visual rhythm, and the final responsive pass.",
+      tags: ["Design"],
       due: new Date().toISOString().slice(0, 10),
       status: "todo",
       inProgressStartedAt: null,
@@ -61,6 +65,7 @@ function loadTasks() {
       title: "Prepare project content and assets",
       priority: "Medium",
       details: "Collect screenshots, copy, and launch checklist notes.",
+      tags: ["Assets"],
       due: "",
       status: "inprogress",
       inProgressStartedAt: Date.now(),
@@ -71,6 +76,7 @@ function loadTasks() {
       title: "Launch board by Tanzim Ahmed Utsho",
       priority: "Low",
       details: "Final review complete.",
+      tags: ["Launch"],
       due: "",
       status: "done",
       inProgressStartedAt: null,
@@ -93,12 +99,13 @@ function applyTheme(theme) {
   themeToggle.setAttribute("aria-pressed", String(isDark));
 }
 
-function createTask(title, priority, due) {
+function createTask(title, priority, due, tags) {
   tasks.unshift({
     id: crypto.randomUUID(),
     title,
     priority,
     details: "",
+    tags,
     due,
     status: "todo",
     inProgressStartedAt: null,
@@ -141,7 +148,7 @@ function getVisibleTasks() {
 
   return tasks
     .filter((task) => activeFilter === "All" || task.priority === activeFilter)
-    .filter((task) => `${task.title} ${task.details || ""}`.toLowerCase().includes(searchTerm))
+    .filter((task) => `${task.title} ${task.details || ""} ${(task.tags || []).join(" ")}`.toLowerCase().includes(searchTerm))
     .sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status) || b.createdAt - a.createdAt);
 }
 
@@ -156,6 +163,12 @@ function buildTaskCard(task) {
   const detailsHTML = task.details
     ? `<p class="mt-2 break-words text-sm leading-6 text-slate-500">${escapeHTML(task.details)}</p>`
     : "";
+  const tagsHTML = (task.tags || [])
+    .map(
+      (tag) =>
+        `<span class="custom-tag rounded-full bg-violet-50 px-2.5 py-1 text-xs font-black text-violet-700 ring-1 ring-violet-200">${escapeHTML(tag)}</span>`,
+    )
+    .join("");
   const timerHTML =
     task.status === IN_PROGRESS_STATUS
       ? `<span class="progress-timer rounded-full bg-slate-950 px-2.5 py-1 text-xs font-black text-white" data-task-id="${task.id}">Time ${formatElapsedTime(getInProgressElapsed(task))}</span>`
@@ -168,6 +181,7 @@ function buildTaskCard(task) {
         ${detailsHTML}
         <div class="mt-3 flex flex-wrap gap-2">
           <span class="rounded-full px-2.5 py-1 text-xs font-black ring-1 ${priorityStyles[task.priority]}">${task.priority}</span>
+          ${tagsHTML}
           <span class="rounded-full px-2.5 py-1 text-xs font-black ring-1 ${dueClass}">${dueText}</span>
           ${timerHTML}
         </div>
@@ -223,6 +237,13 @@ function startEditingTask(taskId) {
         class="edit-details min-h-24 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10"
         maxlength="240"
       >${escapeHTML(task.details || "")}</textarea>
+      <input
+        class="edit-tags h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
+        type="text"
+        maxlength="120"
+        value="${escapeHTML((task.tags || []).join(", "))}"
+        placeholder="Tags: Bug, Design, Urgent"
+      />
       <div class="grid grid-cols-2 gap-2">
         <button class="cancel-edit rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200" type="button">Cancel</button>
         <button class="rounded-xl bg-teal-600 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-950" type="submit">Save</button>
@@ -233,6 +254,7 @@ function startEditingTask(taskId) {
   const form = card.querySelector(".edit-task-form");
   const titleInput = card.querySelector(".edit-title");
   const detailsInput = card.querySelector(".edit-details");
+  const tagsInput = card.querySelector(".edit-tags");
 
   titleInput.focus();
   titleInput.select();
@@ -246,7 +268,7 @@ function startEditingTask(taskId) {
       return;
     }
 
-    updateTask(taskId, title, detailsInput.value.trim());
+    updateTask(taskId, title, detailsInput.value.trim(), parseTags(tagsInput.value));
   });
 
   card.querySelector(".cancel-edit").addEventListener("click", renderBoard);
@@ -322,13 +344,31 @@ function deleteTask(taskId) {
   saveAndRender();
 }
 
-function updateTask(taskId, title, details) {
+function updateTask(taskId, title, details, tags) {
   const task = tasks.find((item) => item.id === taskId);
   if (!task) return;
 
   task.title = title;
   task.details = details;
+  task.tags = tags;
   saveAndRender();
+}
+
+function parseTags(value) {
+  const seenTags = new Set();
+
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .filter((tag) => {
+      const key = tag.toLowerCase();
+      if (seenTags.has(key)) return false;
+
+      seenTags.add(key);
+      return true;
+    })
+    .slice(0, 6);
 }
 
 function getInProgressElapsed(task) {
@@ -376,7 +416,7 @@ taskForm.addEventListener("submit", (event) => {
     return;
   }
 
-  createTask(title, priorityInput.value, dueInput.value);
+  createTask(title, priorityInput.value, dueInput.value, parseTags(tagInput.value));
   taskForm.reset();
   priorityInput.value = "Medium";
   taskInput.focus();

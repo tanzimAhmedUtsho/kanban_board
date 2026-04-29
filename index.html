@@ -193,6 +193,18 @@
         --tw-ring-color: rgba(52, 211, 153, 0.34) !important;
       }
 
+      body[data-theme="dark"] .bg-violet-50 {
+        background-color: rgba(76, 29, 149, 0.72) !important;
+      }
+
+      body[data-theme="dark"] .text-violet-700 {
+        color: #ddd6fe !important;
+      }
+
+      body[data-theme="dark"] .ring-violet-200 {
+        --tw-ring-color: rgba(167, 139, 250, 0.34) !important;
+      }
+
       body[data-theme="dark"] .filter-btn.bg-slate-950 {
         background-color: #14b8a6 !important;
         color: #042f2e !important;
@@ -319,7 +331,7 @@
       </header>
 
       <section class="soft-panel rounded-3xl p-4 sm:p-5">
-        <form id="taskForm" class="grid gap-3 lg:grid-cols-[1fr_10rem_10rem_auto]">
+        <form id="taskForm" class="grid gap-3 lg:grid-cols-[1fr_10rem_10rem_12rem_auto]">
           <input
             id="taskInput"
             type="text"
@@ -340,6 +352,14 @@
             id="dueInput"
             type="date"
             class="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-slate-700 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+          />
+          <input
+            id="tagInput"
+            type="text"
+            maxlength="120"
+            placeholder="Tags: Bug, Design"
+            class="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-slate-700 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+            autocomplete="off"
           />
           <button
             class="h-12 rounded-2xl bg-slate-950 px-6 font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-teal-700"
