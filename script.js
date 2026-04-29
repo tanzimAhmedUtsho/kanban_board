@@ -1,5 +1,6 @@
 const STORAGE_KEY = "taskflow-pro-tanzim-utsho";
 const THEME_KEY = "taskflow-pro-theme";
+const DUE_ALERTS_KEY = "taskflow-pro-due-alerts";
 
 const taskForm = document.getElementById("taskForm");
 const taskInput = document.getElementById("taskInput");
@@ -9,6 +10,7 @@ const tagInput = document.getElementById("tagInput");
 const searchInput = document.getElementById("searchInput");
 const clearDoneBtn = document.getElementById("clearDoneBtn");
 const themeToggle = document.getElementById("themeToggle");
+const notificationToggle = document.getElementById("notificationToggle");
 const filterButtons = document.querySelectorAll(".filter-btn");
 const lists = document.querySelectorAll(".task-list");
 const emptyStateTemplate = document.getElementById("emptyStateTemplate");
@@ -118,6 +120,7 @@ function createTask(title, priority, due, tags) {
 function saveAndRender() {
   saveTasks();
   renderBoard();
+  notifyDueTasks();
 }
 
 function renderBoard() {
@@ -154,7 +157,9 @@ function getVisibleTasks() {
 
 function buildTaskCard(task) {
   const card = document.createElement("article");
-  card.className = "task-card mb-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm";
+  card.className = `task-card mb-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${
+    isDueAlertTask(task) ? "due-alert-card" : ""
+  }`;
   card.draggable = true;
   card.dataset.id = task.id;
 
@@ -307,6 +312,23 @@ function getDueClass(task) {
   return "bg-slate-50 text-slate-600 ring-slate-200";
 }
 
+function getDueStatus(task) {
+  if (!task.due || task.status === "done") return "none";
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dueDate = new Date(`${task.due}T00:00:00`);
+
+  if (dueDate < today) return "overdue";
+  if (dueDate.getTime() === today.getTime()) return "today";
+  return "upcoming";
+}
+
+function isDueAlertTask(task) {
+  const dueStatus = getDueStatus(task);
+  return dueStatus === "overdue" || dueStatus === "today";
+}
+
 function updateStats() {
   const total = tasks.length;
   const done = tasks.filter((task) => task.status === "done").length;
@@ -315,6 +337,7 @@ function updateStats() {
   document.getElementById("totalTasks").innerText = total;
   document.getElementById("doneTasks").innerText = done;
   document.getElementById("progressPercent").innerText = `${progress}%`;
+  document.getElementById("progressChart").style.setProperty("--progress", `${progress * 3.6}deg`);
   document.getElementById("progressBar").style.width = `${progress}%`;
 
   statusOrder.forEach((status) => {
@@ -392,6 +415,47 @@ function updateProgressTimers() {
 
     timer.innerText = `Time ${formatElapsedTime(getInProgressElapsed(task))}`;
   });
+}
+
+function updateNotificationButton() {
+  if (!("Notification" in window)) {
+    notificationToggle.innerText = "Alerts Unavailable";
+    notificationToggle.disabled = true;
+    return;
+  }
+
+  notificationToggle.innerText = Notification.permission === "granted" ? "Alerts On" : "Enable Alerts";
+  notificationToggle.disabled = Notification.permission === "denied";
+}
+
+function notifyDueTasks() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+  const notifiedToday = loadDueAlertHistory();
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  tasks.filter(isDueAlertTask).forEach((task) => {
+    const notificationKey = `${todayKey}:${task.id}:${task.due}`;
+    if (notifiedToday[notificationKey]) return;
+
+    const dueStatus = getDueStatus(task);
+    new Notification(dueStatus === "overdue" ? "Task overdue" : "Task due today", {
+      body: task.title,
+    });
+    notifiedToday[notificationKey] = true;
+  });
+
+  localStorage.setItem(DUE_ALERTS_KEY, JSON.stringify(notifiedToday));
+}
+
+function loadDueAlertHistory() {
+  try {
+    const history = JSON.parse(localStorage.getItem(DUE_ALERTS_KEY) || "{}");
+    return history && typeof history === "object" && !Array.isArray(history) ? history : {};
+  } catch (error) {
+    console.warn("Due alert history could not be loaded.", error);
+    return {};
+  }
 }
 
 function escapeHTML(value) {
@@ -485,5 +549,18 @@ themeToggle.addEventListener("click", () => {
   applyTheme(activeTheme === "dark" ? "light" : "dark");
 });
 
+notificationToggle.addEventListener("click", async () => {
+  if (!("Notification" in window)) return;
+
+  if (Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+
+  updateNotificationButton();
+  notifyDueTasks();
+});
+
 renderBoard();
+updateNotificationButton();
+notifyDueTasks();
 setInterval(updateProgressTimers, 1000);

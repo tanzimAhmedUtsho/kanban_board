@@ -88,6 +88,38 @@
           box-shadow 0.2s ease;
       }
 
+      .progress-chart {
+        --progress: 0deg;
+        width: 4.25rem;
+        height: 4.25rem;
+        border-radius: 999px;
+        background: conic-gradient(#14b8a6 var(--progress), rgba(226, 232, 240, 0.9) 0);
+        display: grid;
+        place-items: center;
+      }
+
+      .progress-chart::before {
+        width: 3rem;
+        height: 3rem;
+        border-radius: inherit;
+        background: rgba(255, 255, 255, 0.94);
+        content: "";
+        grid-area: 1 / 1;
+      }
+
+      .progress-chart-value {
+        grid-area: 1 / 1;
+        position: relative;
+        z-index: 1;
+      }
+
+      .due-alert-card {
+        border-color: rgba(225, 29, 72, 0.75) !important;
+        box-shadow:
+          0 0 0 1px rgba(225, 29, 72, 0.16),
+          0 16px 34px rgba(225, 29, 72, 0.14);
+      }
+
       body[data-theme="dark"] .theme-toggle::before {
         background: #facc15;
         box-shadow: 0 0 0 0.28rem rgba(250, 204, 21, 0.16);
@@ -230,6 +262,21 @@
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
       }
 
+      body[data-theme="dark"] .progress-chart {
+        background: conic-gradient(#2dd4bf var(--progress), rgba(51, 65, 85, 0.95) 0);
+      }
+
+      body[data-theme="dark"] .progress-chart::before {
+        background: rgba(15, 23, 42, 0.96);
+      }
+
+      body[data-theme="dark"] .due-alert-card {
+        border-color: rgba(251, 113, 133, 0.82) !important;
+        box-shadow:
+          0 0 0 1px rgba(251, 113, 133, 0.22),
+          0 16px 34px rgba(0, 0, 0, 0.3);
+      }
+
       .column {
         min-height: 35rem;
       }
@@ -308,6 +355,13 @@
             >
               Dark Mode
             </button>
+            <button
+              id="notificationToggle"
+              class="h-12 rounded-2xl border border-white/70 bg-white/70 px-4 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:text-rose-600"
+              type="button"
+            >
+              Enable Alerts
+            </button>
             <div class="grid grid-cols-3 gap-3">
             <div class="rounded-2xl border border-white/70 bg-white/70 p-4">
               <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Total</p>
@@ -319,7 +373,12 @@
             </div>
             <div class="rounded-2xl border border-white/70 bg-white/70 p-4">
               <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Progress</p>
-              <p id="progressPercent" class="mt-1 text-3xl font-black text-rose-600">0%</p>
+              <div class="mt-2 flex items-center gap-3">
+                <div id="progressChart" class="progress-chart" aria-label="Progress chart" role="img">
+                  <span id="progressPercent" class="progress-chart-value text-sm font-black text-slate-950">0%</span>
+                </div>
+                <p class="text-xs font-bold leading-5 text-slate-500">Done rate</p>
+              </div>
             </div>
             </div>
           </div>
