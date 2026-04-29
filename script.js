@@ -23,7 +23,12 @@ let tasks = loadTasks();
 function loadTasks() {
   try {
     const savedTasks = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (Array.isArray(savedTasks)) return savedTasks;
+    if (Array.isArray(savedTasks)) {
+      return savedTasks.map((task) => ({
+        details: "",
+        ...task,
+      }));
+    }
   } catch (error) {
     console.warn("Saved tasks could not be loaded.", error);
   }
@@ -33,6 +38,7 @@ function loadTasks() {
       id: crypto.randomUUID(),
       title: "Design premium homepage polish",
       priority: "High",
+      details: "Refine spacing, visual rhythm, and the final responsive pass.",
       due: new Date().toISOString().slice(0, 10),
       status: "todo",
       createdAt: Date.now(),
@@ -41,6 +47,7 @@ function loadTasks() {
       id: crypto.randomUUID(),
       title: "Prepare project content and assets",
       priority: "Medium",
+      details: "Collect screenshots, copy, and launch checklist notes.",
       due: "",
       status: "inprogress",
       createdAt: Date.now() + 1,
@@ -49,6 +56,7 @@ function loadTasks() {
       id: crypto.randomUUID(),
       title: "Launch board by Tanzim Ahmed Utsho",
       priority: "Low",
+      details: "Final review complete.",
       due: "",
       status: "done",
       createdAt: Date.now() + 2,
@@ -65,6 +73,7 @@ function createTask(title, priority, due) {
     id: crypto.randomUUID(),
     title,
     priority,
+    details: "",
     due,
     status: "todo",
     createdAt: Date.now(),
@@ -106,7 +115,7 @@ function getVisibleTasks() {
 
   return tasks
     .filter((task) => activeFilter === "All" || task.priority === activeFilter)
-    .filter((task) => task.title.toLowerCase().includes(searchTerm))
+    .filter((task) => `${task.title} ${task.details || ""}`.toLowerCase().includes(searchTerm))
     .sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status) || b.createdAt - a.createdAt);
 }
 
@@ -118,11 +127,15 @@ function buildTaskCard(task) {
 
   const dueText = formatDueDate(task.due);
   const dueClass = getDueClass(task);
+  const detailsHTML = task.details
+    ? `<p class="mt-2 break-words text-sm leading-6 text-slate-500">${escapeHTML(task.details)}</p>`
+    : "";
 
   card.innerHTML = `
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <h3 class="break-words text-base font-black leading-6 text-slate-900">${escapeHTML(task.title)}</h3>
+        ${detailsHTML}
         <div class="mt-3 flex flex-wrap gap-2">
           <span class="rounded-full px-2.5 py-1 text-xs font-black ring-1 ${priorityStyles[task.priority]}">${task.priority}</span>
           <span class="rounded-full px-2.5 py-1 text-xs font-black ring-1 ${dueClass}">${dueText}</span>
@@ -138,7 +151,12 @@ function buildTaskCard(task) {
     </div>
   `;
 
-  card.addEventListener("dragstart", () => {
+  card.addEventListener("dragstart", (event) => {
+    if (card.classList.contains("editing")) {
+      event.preventDefault();
+      return;
+    }
+
     card.classList.add("dragging");
   });
 
@@ -146,7 +164,61 @@ function buildTaskCard(task) {
     card.classList.remove("dragging");
   });
 
+  card.addEventListener("dblclick", (event) => {
+    if (event.target.closest("button")) return;
+    startEditingTask(task.id);
+  });
+
   return card;
+}
+
+function startEditingTask(taskId) {
+  const task = tasks.find((item) => item.id === taskId);
+  const card = Array.from(document.querySelectorAll(".task-card")).find((item) => item.dataset.id === taskId);
+  if (!task || !card) return;
+
+  card.classList.add("editing");
+  card.draggable = false;
+  card.innerHTML = `
+    <form class="edit-task-form grid gap-3">
+      <input
+        class="edit-title h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+        type="text"
+        maxlength="90"
+        value="${escapeHTML(task.title)}"
+        required
+      />
+      <textarea
+        class="edit-details min-h-24 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10"
+        maxlength="240"
+      >${escapeHTML(task.details || "")}</textarea>
+      <div class="grid grid-cols-2 gap-2">
+        <button class="cancel-edit rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200" type="button">Cancel</button>
+        <button class="rounded-xl bg-teal-600 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-950" type="submit">Save</button>
+      </div>
+    </form>
+  `;
+
+  const form = card.querySelector(".edit-task-form");
+  const titleInput = card.querySelector(".edit-title");
+  const detailsInput = card.querySelector(".edit-details");
+
+  titleInput.focus();
+  titleInput.select();
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const title = titleInput.value.trim();
+    if (!title) {
+      titleInput.focus();
+      return;
+    }
+
+    updateTask(taskId, title, detailsInput.value.trim());
+  });
+
+  card.querySelector(".cancel-edit").addEventListener("click", renderBoard);
 }
 
 function formatDueDate(due) {
@@ -209,6 +281,15 @@ function moveTask(taskId, direction) {
 
 function deleteTask(taskId) {
   tasks = tasks.filter((task) => task.id !== taskId);
+  saveAndRender();
+}
+
+function updateTask(taskId, title, details) {
+  const task = tasks.find((item) => item.id === taskId);
+  if (!task) return;
+
+  task.title = title;
+  task.details = details;
   saveAndRender();
 }
 
