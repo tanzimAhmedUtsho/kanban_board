@@ -11,6 +11,7 @@ const lists = document.querySelectorAll(".task-list");
 const emptyStateTemplate = document.getElementById("emptyStateTemplate");
 
 const statusOrder = ["todo", "inprogress", "done"];
+const IN_PROGRESS_STATUS = "inprogress";
 const priorityStyles = {
   High: "bg-rose-50 text-rose-700 ring-rose-200",
   Medium: "bg-sky-50 text-sky-700 ring-sky-200",
@@ -19,15 +20,22 @@ const priorityStyles = {
 
 let activeFilter = "All";
 let tasks = loadTasks();
+saveTasks();
 
 function loadTasks() {
   try {
     const savedTasks = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (Array.isArray(savedTasks)) {
-      return savedTasks.map((task) => ({
-        details: "",
-        ...task,
-      }));
+      return savedTasks.map((task) => {
+        const inProgressStartedAt =
+          task.status === IN_PROGRESS_STATUS ? task.inProgressStartedAt || Date.now() : null;
+
+        return {
+          details: "",
+          ...task,
+          inProgressStartedAt,
+        };
+      });
     }
   } catch (error) {
     console.warn("Saved tasks could not be loaded.", error);
@@ -41,6 +49,7 @@ function loadTasks() {
       details: "Refine spacing, visual rhythm, and the final responsive pass.",
       due: new Date().toISOString().slice(0, 10),
       status: "todo",
+      inProgressStartedAt: null,
       createdAt: Date.now(),
     },
     {
@@ -50,6 +59,7 @@ function loadTasks() {
       details: "Collect screenshots, copy, and launch checklist notes.",
       due: "",
       status: "inprogress",
+      inProgressStartedAt: Date.now(),
       createdAt: Date.now() + 1,
     },
     {
@@ -59,6 +69,7 @@ function loadTasks() {
       details: "Final review complete.",
       due: "",
       status: "done",
+      inProgressStartedAt: null,
       createdAt: Date.now() + 2,
     },
   ];
@@ -76,6 +87,7 @@ function createTask(title, priority, due) {
     details: "",
     due,
     status: "todo",
+    inProgressStartedAt: null,
     createdAt: Date.now(),
   });
 
@@ -130,6 +142,10 @@ function buildTaskCard(task) {
   const detailsHTML = task.details
     ? `<p class="mt-2 break-words text-sm leading-6 text-slate-500">${escapeHTML(task.details)}</p>`
     : "";
+  const timerHTML =
+    task.status === IN_PROGRESS_STATUS
+      ? `<span class="progress-timer rounded-full bg-slate-950 px-2.5 py-1 text-xs font-black text-white" data-task-id="${task.id}">Time ${formatElapsedTime(getInProgressElapsed(task))}</span>`
+      : "";
 
   card.innerHTML = `
     <div class="flex items-start justify-between gap-3">
@@ -139,6 +155,7 @@ function buildTaskCard(task) {
         <div class="mt-3 flex flex-wrap gap-2">
           <span class="rounded-full px-2.5 py-1 text-xs font-black ring-1 ${priorityStyles[task.priority]}">${task.priority}</span>
           <span class="rounded-full px-2.5 py-1 text-xs font-black ring-1 ${dueClass}">${dueText}</span>
+          ${timerHTML}
         </div>
       </div>
       <button class="delete-task rounded-full border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600" type="button" aria-label="Delete task">
@@ -269,13 +286,20 @@ function updateStats() {
   });
 }
 
+function setTaskStatus(task, status) {
+  if (task.status === status) return;
+
+  task.status = status;
+  task.inProgressStartedAt = status === IN_PROGRESS_STATUS ? Date.now() : null;
+}
+
 function moveTask(taskId, direction) {
   const task = tasks.find((item) => item.id === taskId);
   if (!task) return;
 
   const currentIndex = statusOrder.indexOf(task.status);
   const nextIndex = Math.min(Math.max(currentIndex + direction, 0), statusOrder.length - 1);
-  task.status = statusOrder[nextIndex];
+  setTaskStatus(task, statusOrder[nextIndex]);
   saveAndRender();
 }
 
@@ -291,6 +315,29 @@ function updateTask(taskId, title, details) {
   task.title = title;
   task.details = details;
   saveAndRender();
+}
+
+function getInProgressElapsed(task) {
+  if (task.status !== IN_PROGRESS_STATUS || !task.inProgressStartedAt) return 0;
+  return Math.max(0, Date.now() - task.inProgressStartedAt);
+}
+
+function formatElapsedTime(milliseconds) {
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
+function updateProgressTimers() {
+  document.querySelectorAll(".progress-timer").forEach((timer) => {
+    const task = tasks.find((item) => item.id === timer.dataset.taskId);
+    if (!task) return;
+
+    timer.innerText = `Time ${formatElapsedTime(getInProgressElapsed(task))}`;
+  });
 }
 
 function escapeHTML(value) {
@@ -355,7 +402,7 @@ lists.forEach((list) => {
     const task = tasks.find((item) => item.id === draggingTask.dataset.id);
     if (!task) return;
 
-    task.status = list.dataset.status;
+    setTaskStatus(task, list.dataset.status);
     saveAndRender();
   });
 });
@@ -381,3 +428,4 @@ clearDoneBtn.addEventListener("click", () => {
 });
 
 renderBoard();
+setInterval(updateProgressTimers, 1000);
